@@ -1,5 +1,5 @@
 /**
- * sketch.ino  -- ESP32 PID Line Follower
+ * linefollower.ino  -- ESP32 PID Line Follower
  * ----------------------------------------------------------------------------
  * Pipeline, once per control tick:
  *
@@ -17,8 +17,9 @@
  * Sensors use native analogRead() with a raw weighted average -- no
  * thresholds, no calibration phase. It drives immediately on boot.
  *
- * Built for arduino-esp32 (Arduino IDE). Works on core 2.x and 3.x (the PWM
- * API difference is handled in Chassis.cpp).
+ * Uses ONLY standard Arduino Language Reference functions (analogRead,
+ * analogWrite, digitalWrite, pinMode, millis, Serial) -- no vendor APIs. Port
+ * to any analogWrite-capable board by editing Config.h.
  * ----------------------------------------------------------------------------
  */
 

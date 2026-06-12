@@ -16,7 +16,7 @@ Clean class separation, configurable pinout, continuous PID steering.
 |-----------------|----------------------------------------------------------------------|
 | `Sensors`       | Native `analogRead` 5 IR → raw weighted average → angular error `[-1, 1]` (no threshold/calibration) |
 | `PIDController` | error → steering correction `turn ∈ [-1, 1]` (with anti-windup)      |
-| `Chassis`       | `(forward, turn)` → differential mix → direction pins + LEDC PWM      |
+| `Chassis`       | `(forward, turn)` → differential mix → direction pins + `analogWrite` PWM |
 
 Each tick (`loop()`): `error = sensors.read()` → `turn = pid.compute(error)` → `chassis.drive(BASE_SPEED, turn)`.
 
@@ -29,7 +29,7 @@ Each tick (`loop()`): `error = sensors.read()` → `turn = pid.compute(error)` �
 |--------------------|----------------------------------------------------|
 | `Config.h`         | **All** pins, gains, PWM, speeds — edit here only  |
 | `Sensors.h/.cpp`   | IR array + raw weighted-average line estimator     |
-| `Chassis.h/.cpp`   | L298N differential drive (LEDC PWM)                |
+| `Chassis.h/.cpp`   | L298N differential drive (`analogWrite` PWM)       |
 | `PIDController.h/.cpp` | PID with dt-aware integral/derivative          |
 | `sketch.ino`       | Wiring of the three classes + control loop         |
 
@@ -81,10 +81,22 @@ All of the above is just the **default**. Change any pin in `Config.h` (`SENSOR_
 4. `BASE_SPEED`: raise once steering is stable.
 5. `PWM_MIN_DUTY`: lowest duty that still moves the motors (overcome stall).
 
-## ESP32-specific notes baked into the code
+## Standard Arduino API only
 
-- **ADC** is 12-bit (`analogReadResolution(12)`, 0–4095) with 11 dB attenuation for the full ~0–3.3 V swing.
-- **PWM** uses the LEDC peripheral, **not** `analogWrite`. `Chassis.cpp` auto-selects the API: `ledcAttach()/ledcWrite(pin,…)` on core 3.x, `ledcSetup()/ledcAttachPin()/ledcWrite(channel,…)` on 2.x.
+This project uses **only functions from the [Arduino Language Reference](https://docs.arduino.cc/language-reference/)** — no ESP32 vendor calls (`ledc*`, `analogSetPinAttenuation`, `ADC_11db` are all gone). Portable to any `analogWrite`-capable board by changing pins + `ADC_RESOLUTION_BITS` in `Config.h`.
+
+Functions used:
+
+| Area      | Functions                                                        |
+|-----------|------------------------------------------------------------------|
+| Digital   | `pinMode`, `digitalWrite`                                        |
+| Analog    | `analogRead`, `analogReadResolution`, `analogWrite`, `analogWriteResolution` |
+| Time      | `millis`, `delay`                                                |
+| Serial    | `Serial.begin/print/println`                                     |
+| Math      | `constrain`, `abs`/`fabsf`                                       |
+
+- **ADC**: `analogReadResolution(ADC_RESOLUTION_BITS)` → `analogRead()` returns `0..ADC_MAX`. ESP32 = 12 bits (0–4095); set to 10 for an UNO (0–1023).
+- **PWM**: `analogWrite(enablePin, duty)` with `analogWriteResolution(PWM_RESOLUTION)`; 8-bit → duty 0–255.
 
 ## References
 

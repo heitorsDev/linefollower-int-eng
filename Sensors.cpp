@@ -14,10 +14,10 @@ Sensors::Sensors()
 }
 
 void Sensors::begin() {
-  // ESP32 ADC: 12-bit range (0..4095). 11 dB attenuation -> full ~0..3.3 V.
-  analogReadResolution(12);
+  // Standard Arduino analog input. analogReadResolution() sets the bit depth
+  // so analogRead() returns 0..ADC_MAX (ESP32 = 12 bits -> 0..4095).
+  analogReadResolution(ADC_RESOLUTION_BITS);
   for (uint8_t i = 0; i < 5; i++) {
-    analogSetPinAttenuation(SENSOR_PINS[i], ADC_11db);
     pinMode(SENSOR_PINS[i], INPUT);
   }
 }
@@ -27,12 +27,12 @@ float Sensors::read() {
   float total       = 0.0f;   // sum( v[i] )
 
   for (uint8_t i = 0; i < 5; i++) {
-    _raw[i] = analogRead(SENSOR_PINS[i]);   // native Arduino read, 0..4095
+    _raw[i] = analogRead(SENSOR_PINS[i]);   // native Arduino read, 0..ADC_MAX
 
     // Map raw so the value is LARGE when this sensor sits over the line.
     // Dark line  -> low reflectance -> low raw -> invert.
     // Light line -> high reflectance -> use raw directly.
-    float v = LINE_IS_DARK ? (4095.0f - (float)_raw[i]) : (float)_raw[i];
+    float v = LINE_IS_DARK ? ((float)ADC_MAX - (float)_raw[i]) : (float)_raw[i];
 
     weightedSum += SENSOR_WEIGHTS[i] * v;
     total       += v;

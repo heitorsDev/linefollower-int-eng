@@ -1,38 +1,9 @@
 #include "Chassis.h"
 
-// ----------------------------------------------------------------------------
-// LEDC PWM API shim.
-// arduino-esp32 core 3.x changed the LEDC API:
-//   - 3.x  : ledcAttach(pin, freq, resolution); ledcWrite(pin, duty);
-//   - <3.x : ledcSetup(channel, freq, resolution); ledcAttachPin(pin, channel);
-//            ledcWrite(channel, duty);
-// We hide the difference so the rest of the class just calls pwmAttach/pwmWrite
-// with the PIN. On the old core we allocate one channel per enable pin.
-// ----------------------------------------------------------------------------
-#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
-  static inline void pwmAttach(uint8_t pin) {
-    ledcAttach(pin, PWM_FREQ_HZ, PWM_RESOLUTION);
-  }
-  static inline void pwmWrite(uint8_t pin, uint32_t duty) {
-    ledcWrite(pin, duty);
-  }
-#else
-  static uint8_t _nextChannel = 0;
-  // Map enable pin -> channel. Two motors -> at most 2 channels here.
-  static int8_t _chanForPin[40];
-  static bool   _chanInit = false;
-  static inline void pwmAttach(uint8_t pin) {
-    if (!_chanInit) { for (int i = 0; i < 40; i++) _chanForPin[i] = -1; _chanInit = true; }
-    uint8_t ch = _nextChannel++;
-    _chanForPin[pin] = ch;
-    ledcSetup(ch, PWM_FREQ_HZ, PWM_RESOLUTION);
-    ledcAttachPin(pin, ch);
-  }
-  static inline void pwmWrite(uint8_t pin, uint32_t duty) {
-    int8_t ch = _chanForPin[pin];
-    if (ch >= 0) ledcWrite(ch, duty);
-  }
-#endif
+// Speed is produced with the standard Arduino analogWrite() on the L298N
+// enable pins (ENA/ENB). Direction comes from digitalWrite() on the IN pins.
+// Only documented Arduino Language Reference functions are used here:
+//   pinMode, digitalWrite, analogWrite, analogWriteResolution.
 
 Chassis::Chassis() : _leftPower(0.0f), _rightPower(0.0f) {}
 
@@ -43,9 +14,12 @@ void Chassis::begin() {
   pinMode(RIGHT_MOTOR.in1, OUTPUT);
   pinMode(RIGHT_MOTOR.in2, OUTPUT);
 
-  // Enable pins driven by PWM.
-  pwmAttach(LEFT_MOTOR.en);
-  pwmAttach(RIGHT_MOTOR.en);
+  // Enable pins carry the PWM speed signal.
+  pinMode(LEFT_MOTOR.en, OUTPUT);
+  pinMode(RIGHT_MOTOR.en, OUTPUT);
+
+  // Set analogWrite() duty range to match PWM_MAX_DUTY.
+  analogWriteResolution(PWM_RESOLUTION);
 
   stop();
 }
@@ -67,7 +41,7 @@ void Chassis::setMotor(const MotorPins& m, bool invert, float power) {
     if (duty < PWM_MIN_DUTY) duty = PWM_MIN_DUTY;
     if (duty > PWM_MAX_DUTY) duty = PWM_MAX_DUTY;
   }
-  pwmWrite(m.en, duty);
+  analogWrite(m.en, duty);
 }
 
 void Chassis::drive(float forward, float turn) {
@@ -92,6 +66,6 @@ void Chassis::stop() {
   digitalWrite(LEFT_MOTOR.in2, LOW);
   digitalWrite(RIGHT_MOTOR.in1, LOW);
   digitalWrite(RIGHT_MOTOR.in2, LOW);
-  pwmWrite(LEFT_MOTOR.en, 0);
-  pwmWrite(RIGHT_MOTOR.en, 0);
+  analogWrite(LEFT_MOTOR.en, 0);
+  analogWrite(RIGHT_MOTOR.en, 0);
 }

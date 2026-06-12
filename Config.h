@@ -34,6 +34,11 @@
 // All on ADC1, all input-capable analog pins.
 static const uint8_t SENSOR_PINS[5] = { 36, 39, 34, 35, 32 };
 
+// ADC resolution in bits (Arduino analogReadResolution()). ESP32 = 12 bits.
+// ADC_MAX is the top reading returned by analogRead() at this resolution.
+static const uint8_t ADC_RESOLUTION_BITS = 12;
+static const int     ADC_MAX = (1 << ADC_RESOLUTION_BITS) - 1;   // 4095
+
 // Per-sensor lateral weight used to compute the line position.
 // Symmetric around the center sensor. Sign sets which way is "positive error".
 // With this layout a positive error  => line is to the ROBOT'S RIGHT.
@@ -68,12 +73,13 @@ static const bool LEFT_MOTOR_INVERT  = false;
 static const bool RIGHT_MOTOR_INVERT = false;
 
 // ============================================================================
-// PWM (LEDC) SETTINGS
+// PWM SETTINGS  (standard Arduino analogWrite)
 // ============================================================================
-// L298N is a slow BJT H-bridge: keep PWM frequency modest (~1 kHz) to limit
-// switching losses and audible whine. 8-bit resolution -> duty 0..255.
-static const uint32_t PWM_FREQ_HZ    = 1000;
-static const uint8_t  PWM_RESOLUTION = 8;          // bits
+// Speed is set with analogWrite() on the L298N enable pins. PWM_RESOLUTION is
+// applied via analogWriteResolution(); 8 bits -> duty 0..255 (the analogWrite
+// default). Frequency is left at the core default (not part of the standard
+// analogWrite API).
+static const uint8_t  PWM_RESOLUTION = 8;                          // bits
 static const uint16_t PWM_MAX_DUTY   = (1 << PWM_RESOLUTION) - 1;  // 255
 
 // Floor below which the motor stalls instead of turning (overcomes static
